@@ -6,7 +6,12 @@
 #include<string.h>
 #include<pthread.h>
 
-#define PORT 8997
+#include "./functions/server-constant.h"
+#include "./functions/admin.h"
+#include "./functions/student.h"
+#include "./functions/faculty.h"
+
+#define PORT 9020
 #define MAX_CLIENTS 10
 
 void *client_handler(void *arg);
@@ -30,12 +35,13 @@ int main(){
     
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
     //specified Destination address of the socket 
     //INADDR_ANY automatically assigns IP address of the current machine
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    
 
     //Bind the socket to the specified IP Address and port
-    if(bind(server_socket, (struct sockddr *)&server_addr, sizeof(server_addr)) == -1)
+    if(bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
         error("Error in Binding");
 
     //Listen for incoming connections
@@ -55,7 +61,7 @@ int main(){
         }
 
         //Create a new thread to handle the client
-        ptheard_create(&threads[MAX_CLIENTS], NULL, client_handler, (void *)&client_socket);
+        pthread_create(&threads[MAX_CLIENTS], NULL, client_handler, (void *)&client_socket);
     }
 
     //closing the server after closing the connection
@@ -66,27 +72,73 @@ int main(){
 
 void *client_handler(void *arg){
     int client_socket = *((int *)arg);
-    char buffer[1024];
-    int bytes_received;
+    char readBuffer[1024],writeBuffer[1024];
+    int readBytes, writeBytes;
+    int userChoice;
 
-    while(1){
-        bytes_received = recv(client_socket, buffer, sizeof(buffer),0);
-        if(bytes_received == -1){
-            perror("Error in receiving data");
-            close(client_socket);
-            pthread_exit(NULL);
+    writeBytes = write(client_socket, INITIAL_PROMPT, strlen(INITIAL_PROMPT));
+    if (writeBytes == -1)
+        perror("Error while sending first prompt to the user!");
+    else
+    {
+        bzero(readBuffer, sizeof(readBuffer));
+        readBytes = read(client_socket, readBuffer, sizeof(readBuffer));
+        if (readBytes == -1)
+            perror("Error while reading from client");
+        else if (readBytes == 0)
+            printf("No data was sent by the client");
+        else
+        {
+            userChoice = atoi(readBuffer);
+            switch (userChoice)
+            {
+            case 1:
+                // Admin
+                admin_operation_handler(client_socket);
+                break;
+            case 2:
+                // Faculty
+                printf("Faculty");
+                //faculty_operation_handler(client_socket);
+                break;
+            case 3:
+                // Student
+                printf("Student");
+                student_operation_handler(client_socket);
+                break;
+            default:
+                // Exit
+                close(client_socket);
+                break;
+            }
         }
-
-        if(bytes_received == 0){
-            printf("Client Disconnected\n");
-            close(client_socket);
-            pthread_exit(NULL);
-        }
-
-        buffer[bytes_received] = '\0';
-        printf("Received : %s\n", buffer);
-
-        //Echo the message back to the client
-        send(client_socket, buffer, bytes_received, 0);
     }
+    printf("Terminating connection to client!\n");
+
+
+
+
+    // while(1){
+        
+    //     int bytes_received = read(client_socket, buffer, sizeof(buffer));
+    //     if(bytes_received == -1){
+    //         perror("Error in receiving data");
+    //         close(client_socket);
+    //         pthread_exit(NULL);
+    //     }
+
+    //     if(bytes_received == 0){
+    //         printf("Client Disconnected\n");
+    //         close(client_socket);
+    //         pthread_exit(NULL);
+    //     }
+    //     buffer[bytes_received] = '\0';
+
+    //     write(1,"Received : ",11);
+    //     write(1,buffer,strlen(buffer));
+    //     write(1,"\n",1);
+
+    //     write(client_socket, buffer, bytes_received);
+    //     memset(buffer, '\0', sizeof(buffer));
+    // }
 }
