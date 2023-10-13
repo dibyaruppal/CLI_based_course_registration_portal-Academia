@@ -98,12 +98,10 @@ void *client_handler(void *arg){
                 break;
             case 2:
                 // Faculty
-                printf("Faculty");
-                //faculty_operation_handler(client_socket);
+                faculty_operation_handler(client_socket);
                 break;
             case 3:
                 // Student
-                printf("Student");
                 student_operation_handler(client_socket);
                 break;
             default:
@@ -115,30 +113,4 @@ void *client_handler(void *arg){
     }
     printf("Terminating connection to client!\n");
 
-
-
-
-    // while(1){
-        
-    //     int bytes_received = read(client_socket, buffer, sizeof(buffer));
-    //     if(bytes_received == -1){
-    //         perror("Error in receiving data");
-    //         close(client_socket);
-    //         pthread_exit(NULL);
-    //     }
-
-    //     if(bytes_received == 0){
-    //         printf("Client Disconnected\n");
-    //         close(client_socket);
-    //         pthread_exit(NULL);
-    //     }
-    //     buffer[bytes_received] = '\0';
-
-    //     write(1,"Received : ",11);
-    //     write(1,buffer,strlen(buffer));
-    //     write(1,"\n",1);
-
-    //     write(client_socket, buffer, bytes_received);
-    //     memset(buffer, '\0', sizeof(buffer));
-    // }
 }

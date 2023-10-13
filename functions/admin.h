@@ -22,7 +22,7 @@ bool update_faculty_details(int connFD);
 bool admin_operation_handler(int connFD)
 {
 
-    if (login_handler(true, connFD, NULL))
+    if (login_handler(true, false, connFD, NULL, NULL))
     {
         ssize_t writeBytes, readBytes;            // Number of bytes read from / written to the client
         char readBuffer[1024], writeBuffer[1024]; // A buffer used for reading & writing to the client

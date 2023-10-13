@@ -10,6 +10,9 @@
 #include <fcntl.h>     // Import for `open`
 #include <stdlib.h>    // Import for `atoi`
 #include <errno.h>     // Import for `errno`
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <signal.h>
 
 #include "../record-struct/course.h"
 #include "../record-struct/faculty.h"
@@ -19,24 +22,27 @@
 
 // Function Prototypes =================================
 
-bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudent);
+bool login_handler(bool isAdmin, bool isFaculty, int connFD, struct Student *ptrToStudent, struct Faculty *ptrToFaculty);
 // bool get_account_details(int connFD, struct Account *customerAccount);
 bool get_student_details(int connFD, int studentID);
 bool get_faculty_details(int connFD, int facultyID);
+bool lock_critical_section(int, struct sembuf *semOp);
+bool unlock_critical_section(int, struct sembuf *sem_op);
 // bool get_transaction_details(int connFD, int accountNumber);
 
 // =====================================================
 
 // Function Definition =================================
 
-bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudentID)
+bool login_handler(bool isAdmin, bool isFaculty, int connFD, struct Student *ptrToStudentID, struct Faculty *ptrToFacultyID)
 {
     ssize_t readBytes, writeBytes;            // Number of bytes written to / read from the socket
     char readBuffer[1024], writeBuffer[1024]; // Buffer for reading from / writing to the client
     char tempBuffer[1024];
     struct Student student;
+    struct Faculty faculty;
 
-    int ID;
+    int ID=-1;
 
     bzero(readBuffer, sizeof(readBuffer));
     bzero(writeBuffer, sizeof(writeBuffer));
@@ -44,6 +50,8 @@ bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudentID)
     // Get login message for respective user type
     if (isAdmin)
         strcpy(writeBuffer, ADMIN_LOGIN_WELCOME);
+    else if (isFaculty)
+        strcpy(writeBuffer, FACULTY_LOGIN_WELCOME);
     else
         strcpy(writeBuffer, STUDENT_LOGIN_WELCOME);
 
@@ -54,14 +62,14 @@ bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudentID)
     writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
     if (writeBytes == -1)
     {
-        perror("Error writing WELCOME & LOGIN_ID message to the client!");
+        perror("Error writing WELCOME & LOGIN_ID message to the user!");
         return false;
     }
 
     readBytes = read(connFD, readBuffer, sizeof(readBuffer));
     if (readBytes == -1)
     {
-        perror("Error reading login ID from client!");
+        perror("Error reading login ID from user!");
         return false;
     }
 
@@ -72,52 +80,98 @@ bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudentID)
         if (strcmp(readBuffer, ADMIN_LOGIN_ID) == 0)
             userFound = true;
     }
-    // else
-    // {
-    //     bzero(tempBuffer, sizeof(tempBuffer));
-    //     strcpy(tempBuffer, readBuffer);
-    //     strtok(tempBuffer, "-");
-    //     ID = atoi(strtok(NULL, "-"));
+    else if (isFaculty)
+    {
+        bzero(tempBuffer, sizeof(tempBuffer));
+        strcpy(tempBuffer, readBuffer);
+        strtok(tempBuffer, "-");
+        ID = atoi(strtok(NULL, "-"));
 
-    //     int customerFileFD = open(CUSTOMER_FILE, O_RDONLY);
-    //     if (customerFileFD == -1)
-    //     {
-    //         perror("Error opening customer file in read mode!");
-    //         return false;
-    //     }
+        int facultyFileFD = open(FACULTY_FILE, O_RDONLY);
+        if (facultyFileFD == -1)
+        {
+            perror("Error opening Faculty file in read mode!");
+            return false;
+        }
 
-    //     off_t offset = lseek(customerFileFD, ID * sizeof(struct Student), SEEK_SET);
-    //     if (offset >= 0)
-    //     {
-    //         struct flock lock = {F_RDLCK, SEEK_SET, ID * sizeof(struct Customer), sizeof(struct Customer), getpid()};
+        off_t offset = lseek(facultyFileFD, ID * sizeof(struct Faculty), SEEK_SET);
+        if (offset >= 0)
+        {
+            struct flock lock = {F_RDLCK, SEEK_SET, ID * sizeof(struct Faculty), sizeof(struct Faculty), getpid()};
 
-    //         int lockingStatus = fcntl(customerFileFD, F_SETLKW, &lock);
-    //         if (lockingStatus == -1)
-    //         {
-    //             perror("Error obtaining read lock on customer record!");
-    //             return false;
-    //         }
+            int lockingStatus = fcntl(facultyFileFD, F_SETLKW, &lock);
+            if (lockingStatus == -1)
+            {
+                perror("Error obtaining read lock on Faculty record!");
+                return false;
+            }
 
-    //         readBytes = read(customerFileFD, &customer, sizeof(struct Customer));
-    //         if (readBytes == -1)
-    //         {
-    //             ;
-    //             perror("Error reading customer record from file!");
-    //         }
+            readBytes = read(facultyFileFD, &faculty, sizeof(struct Faculty));
+            if (readBytes == -1)
+            {
+                ;
+                perror("Error reading Faculty record from file!");
+            }
 
-    //         lock.l_type = F_UNLCK;
-    //         fcntl(customerFileFD, F_SETLK, &lock);
+            lock.l_type = F_UNLCK;
+            fcntl(facultyFileFD, F_SETLK, &lock);
 
-    //         if (strcmp(customer.login, readBuffer) == 0)
-    //             userFound = true;
+            if (strcmp(faculty.login, readBuffer) == 0)
+                userFound = true;
 
-    //         close(customerFileFD);
-    //     }
-    //     else
-    //     {
-    //         writeBytes = write(connFD, CUSTOMER_LOGIN_ID_DOESNT_EXIT, strlen(CUSTOMER_LOGIN_ID_DOESNT_EXIT));
-    //     }
-    // }
+            close(facultyFileFD);
+        }
+        else
+        {
+            writeBytes = write(connFD, FACULTY_LOGIN_ID_DOESNT_EXIT, strlen(FACULTY_LOGIN_ID_DOESNT_EXIT));
+        }
+    }
+    else
+    {
+        bzero(tempBuffer, sizeof(tempBuffer));
+        strcpy(tempBuffer, readBuffer);
+        strtok(tempBuffer, "-");
+        ID = atoi(strtok(NULL, "-"));
+
+        int studentFileFD = open(STUDENT_FILE, O_RDONLY);
+        if (studentFileFD == -1)
+        {
+            perror("Error opening student file in read mode!");
+            return false;
+        }
+
+        off_t offset = lseek(studentFileFD, ID * sizeof(struct Student), SEEK_SET);
+        if (offset >= 0)
+        {
+            struct flock lock = {F_RDLCK, SEEK_SET, ID * sizeof(struct Student), sizeof(struct Student), getpid()};
+
+            int lockingStatus = fcntl(studentFileFD, F_SETLKW, &lock);
+            if (lockingStatus == -1)
+            {
+                perror("Error obtaining read lock on student record!");
+                return false;
+            }
+
+            readBytes = read(studentFileFD, &student, sizeof(struct Student));
+            if (readBytes == -1)
+            {
+                ;
+                perror("Error reading student record from file!");
+            }
+
+            lock.l_type = F_UNLCK;
+            fcntl(studentFileFD, F_SETLK, &lock);
+
+            if (strcmp(student.login, readBuffer) == 0)
+                userFound = true;
+
+            close(studentFileFD);
+        }
+        else
+        {
+            writeBytes = write(connFD, STUDENT_LOGIN_ID_DOESNT_EXIT, strlen(STUDENT_LOGIN_ID_DOESNT_EXIT));
+        }
+    }
 
     if (userFound)
     {
@@ -147,20 +201,33 @@ bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudentID)
             if (strcmp(readBuffer, ADMIN_PASSWORD) == 0)
                 return true;
         }
-        // else
-        // {
-        //     if (strcmp(readBuffer, customer.password) == 0)
-        //     {
-        //         *ptrToStudentID = customer;
-        //         return true;
-        //     }
-        //     //original
-        //     // if (strcmp(hashedPassword, customer.password) == 0)
-        //     // {
-        //     //     *ptrToCustomerID = customer;
-        //     //     return true;
-        //     // }
-        // }
+        else if(isFaculty)
+        {
+            if (strcmp(readBuffer, faculty.password) == 0)
+            {
+                *ptrToFacultyID = faculty;
+                return true;
+            }
+        }
+        else
+        {
+            if(student.active == 0){
+                bzero(writeBuffer, sizeof(writeBuffer));
+                writeBytes = write(connFD, STUDENT_ACCOUNT_DEACTIVATED, strlen(STUDENT_ACCOUNT_DEACTIVATED));
+                return false;
+            }
+            if (strcmp(readBuffer, student.password) == 0)
+            {
+                *ptrToStudentID = student;
+                return true;
+            }
+            //original
+            // if (strcmp(hashedPassword, customer.password) == 0)
+            // {
+            //     *ptrToCustomerID = customer;
+            //     return true;
+            // }
+        }
 
         bzero(writeBuffer, sizeof(writeBuffer));
         writeBytes = write(connFD, INVALID_PASSWORD, strlen(INVALID_PASSWORD));
@@ -174,6 +241,7 @@ bool login_handler(bool isAdmin, int connFD, struct Student *ptrToStudentID)
     return false;
 }
 
+// Fetching Student Details =====================================================================================================================
 bool get_student_details(int connFD, int studentID)
 {
     ssize_t readBytes, writeBytes;             // Number of bytes read from / written to the socket
@@ -277,6 +345,7 @@ bool get_student_details(int connFD, int studentID)
     return true;
 }
 
+// Fetching Faculty Details =====================================================================================================================
 bool get_faculty_details(int connFD, int facultyID)
 {
     ssize_t readBytes, writeBytes;             // Number of bytes read from / written to the socket
@@ -380,6 +449,35 @@ bool get_faculty_details(int connFD, int facultyID)
     return true;
 }
 
-// =====================================================
+// Locking Critical Section =====================================================================================================================
+bool lock_critical_section(int semIdentifier, struct sembuf *semOp)
+{
+    semOp->sem_flg = SEM_UNDO;
+    semOp->sem_op = -1;
+    semOp->sem_num = 0;
+    int semopStatus = semop(semIdentifier, semOp, 1);
+    if (semopStatus == -1)
+    {
+        perror("Error while locking critical section");
+        return false;
+    }
+    return true;
+}
+
+// Unlocking Critical Section =====================================================================================================================
+bool unlock_critical_section(int semIdentifier, struct sembuf *semOp)
+{
+    semOp->sem_op = 1;
+    int semopStatus = semop(semIdentifier, semOp, 1);
+    if (semopStatus == -1)
+    {
+        perror("Error while operating on semaphore!");
+        _exit(1);
+    }
+    return true;
+}
+
+
+// =====================================================================================================================
 
 #endif

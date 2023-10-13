@@ -41,17 +41,6 @@ int main(){
     char display_string_2[] = "Client to server connection succesfully established !!\n";
     write(1, display_string_2, sizeof(display_string_2));
     
-    // char message[1024];
-    // while(1){
-        
-    //     read(client_socket,message, sizeof(message));
-    //     read(0,message, sizeof(message));
-    //     write(client_socket, message, sizeof(message));
-        
-    //     //char display_string_2[] = "Message from the server : ";
-    //     // write(1, display_string_2, sizeof(display_string_2));
-    //     write(1, message, strlen(message));
-    // }
     connection_handler(client_socket);
 
     close(client_socket);
