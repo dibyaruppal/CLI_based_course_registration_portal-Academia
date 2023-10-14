@@ -252,6 +252,7 @@ bool add_student(int connFD)
 
     // Setting Activated staus to the Student
     newStudent.active = 1;
+    newStudent.number_of_enrolled_course = 0;
 
     studentFileDescriptor = open(STUDENT_FILE, O_CREAT | O_APPEND | O_WRONLY, S_IRWXU);
     if (studentFileDescriptor == -1)

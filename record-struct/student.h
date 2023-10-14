@@ -9,7 +9,8 @@ struct Student
     int age;
     char dept[4]; // Department Name
     int active;
-    struct Course *enrolled_course[10];
+    int enrolled_course[10];
+    int number_of_enrolled_course;
     
     // Login Credentials
     char login[30]; // Format : name-id (name will the first word in the structure member `name`)

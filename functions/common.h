@@ -23,12 +23,11 @@
 // Function Prototypes =================================
 
 bool login_handler(bool isAdmin, bool isFaculty, int connFD, struct Student *ptrToStudent, struct Faculty *ptrToFaculty);
-// bool get_account_details(int connFD, struct Account *customerAccount);
 bool get_student_details(int connFD, int studentID);
 bool get_faculty_details(int connFD, int facultyID);
+bool get_all_course_details(int connFD);
 bool lock_critical_section(int, struct sembuf *semOp);
 bool unlock_critical_section(int, struct sembuf *sem_op);
-// bool get_transaction_details(int connFD, int accountNumber);
 
 // =====================================================
 
@@ -448,6 +447,114 @@ bool get_faculty_details(int connFD, int facultyID)
 
     readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
     return true;
+}
+
+// Fetching Course Details =====================================================================================================================
+bool get_all_course_details(int connFD)
+{
+    ssize_t readBytes, writeBytes;             // Number of bytes read from / written to the socket
+    char readBuffer[1024], writeBuffer[1024]; // A buffer for reading from / writing to the socket
+    char tempBuffer[1024];
+
+    struct Course course;
+    int courseFileDescriptor;
+    struct flock lock = {F_RDLCK, SEEK_SET, 0, sizeof(struct Course), getpid()};
+
+    courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
+    if (courseFileDescriptor == -1)
+    {
+        // Course File doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, COURSE_ID_DOESNT_EXIT);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing COURSE_ID_DOESNT_EXIT message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+    // Fetching Number of courese records present
+    int file_size = lseek(courseFileDescriptor, 0, SEEK_END);
+    int number_of_courses = file_size/sizeof(struct Course);
+    
+    if(number_of_courses == 0)
+    {
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, COURSE_NOT_AVAILABLE);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing COURSE_NOT_AVAILABLE message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+    else
+    {
+        for(int cid=0;cid<number_of_courses;cid++)
+        {
+            
+            int offset = lseek(courseFileDescriptor, cid * sizeof(struct Course), SEEK_SET);
+            if (offset == -1)
+            {
+                perror("Error while seeking to required course record!");
+                return false;   
+            }
+            lock.l_start = offset;
+
+            int lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock);
+            if (lockingStatus == -1)
+            {
+                perror("Error while obtaining read lock on the student file!");
+                return false;
+            }
+
+            readBytes = read(courseFileDescriptor, &course, sizeof(struct Course));
+            if (readBytes == -1)
+            {
+                perror("Error reading student record from file!");
+                return false;
+            }
+
+            lock.l_type = F_UNLCK;
+            fcntl(courseFileDescriptor, F_SETLK, &lock);
+            bzero(writeBuffer, sizeof(writeBuffer));
+            int available_seat = course.seat - course.alloted_seat;
+            if(course.active == 1 && available_seat>0)
+            {
+                sprintf(writeBuffer, "\t-Course ID : %d\tCourse Name : %s\tAvailable Seats: %d^", course.course_id, course.course_name, course.seat - course.alloted_seat);
+                writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+                if (writeBytes == -1)
+                {
+                    perror("Error writing student info to client!");
+                    return false;
+                }
+                readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+            }
+            
+        }
+    }
+
+    close(courseFileDescriptor);
+    bzero(writeBuffer, sizeof(writeBuffer));
+    
+    strcpy(writeBuffer, "\n\nYou'll now be redirected to the main menu...^");
+
+    writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+    if (writeBytes == -1)
+    {
+        perror("Error writing student info to client!");
+        return false;
+    }
+
+    readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+    return true;
+
 }
 
 // Locking Critical Section =====================================================================================================================

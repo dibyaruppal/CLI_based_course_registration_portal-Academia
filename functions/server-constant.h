@@ -118,6 +118,26 @@
 
 #define ADMIN_LOGOUT "Logging you out now superman! Good bye!$"
 
+
+// ENROLL COURSE
+#define OPTION_MENU "Enter the ID of the course from above in which you want to enroll"
+#define MAX_COURSE_ENROLLED 10
+#define MAX_COURSE_ENROLLED_REACHED "Maximum number of Course Enrolled Reached by faculty\n^"
+#define STUDENT_ENROLL_COURSE_SUCCESS "The course is added succesfully : "
+#define COURSE_NOT_ENROLLED "No Course is enrolled at this moment"
+#define COURSE_ALREADY_ENROLLED "You have already enrolled in this course"
+#define THIS_COURSE_NOT_ENROLLED "You have not enrolled in this course"
+
+// UNENROLL COURSE
+#define STUDENT_UNENROLL_COURSE "Enter the ID of the course from which you want to unenroll from the above listed Courses"
+// #define OPTION_MENU "Enter the ID of the course from above in which you want to enroll"
+// #define MAX_COURSE_ENROLLED 10
+// #define MAX_COURSE_ENROLLED_REACHED "Maximum number of Course Enrolled Reached by faculty\n^"
+// #define STUDENT_ENROLL_COURSE_SUCCESS "The course is added succesfully : "
+// #define COURSE_NOT_ENROLLED "No Course is enrolled at this moment"
+// #define COURSE_ALREADY_ENROLLED "You have already enrolled in this course"
+// #define COURSE_NOT_ENROLLED "You have not enrolled in this course"
+
 // ====================================================
 
 // ========== STUDENT SPECIFIC TEXT===================
@@ -176,7 +196,7 @@
 #define FACULTY_ADD_COURSE_NAME "Enter the Name of the Course\n"
 #define FACULTY_ADD_COURSE_SUCCESS "The course is added succesfully : "
 #define FACULTY_ADD_TOTAL_SEAT "Enter the total number of seats of the Course\n"
-#define FACULTY_DEACTIVATE_COURSE "Enter the ID of the course whom you want to remove"
+#define FACULTY_DEACTIVATE_COURSE "Enter the ID of the course which you want to remove"
 #define FACULTY_DEACTIVATE_COURSE_SUCCESS "The metioned course is removed successfully !!\nYou'll now be redirected to the main menu!^"
 
 #define COURSE_ID_DOESNT_EXIT "No course could be found for the given ID"
@@ -184,7 +204,7 @@
 
 #define MAX_COURSE_OFFERED 10
 #define MAX_COURSE_OFFERING_REACHED "Maximum number of Course Offering Reached by faculty\n^"
-
+#define COURSE_NOT_AVAILABLE "No Course is being offered at this moment"
 
 #define RETURN_TO_MAIN_MENU "\nYou'll now be redirected to the main menu!^"
 // #define ADMIN_ADD_STUDENT_GENDER "Enter the Gender (M: Male, F: Female, O: Other)\n"

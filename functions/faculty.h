@@ -444,10 +444,10 @@ bool remove_offered_courses(int connFD, int facultyID){
 
     course.active = 0;
 
-    courseFileDescriptor = open(STUDENT_FILE, O_WRONLY);
+    courseFileDescriptor = open(COURSE_FILE, O_WRONLY);
     if (courseFileDescriptor == -1)
     {
-        perror("Error while opening student file");
+        perror("Error while opening course file");
         return false;
     }
     offset = lseek(courseFileDescriptor, courseID * sizeof(struct Course), SEEK_SET);
@@ -485,9 +485,6 @@ bool remove_offered_courses(int connFD, int facultyID){
         perror("Error while opening faculty file");
         return false;
     }
-
-    // off_t offset;
-    // int lockingStatus;
 
     offset = lseek(facultyFileDescriptor, facultyID * sizeof(struct Faculty), SEEK_SET);
     if (errno == EINVAL)
