@@ -7,6 +7,8 @@ struct Course
     char course_name[25]; // Course Name
     int seat; // Total number on seat
     int alloted_seat; // Total number of filled seat
+    int enrolled_students_id[200];
+    int active;
 };
 
 #endif

@@ -45,6 +45,11 @@
 #define FACULTY_ID_DOESNT_EXIT "No faculty could be found for the given ID"
 #define FACULTY_LOGIN_ID_DOESNT_EXIT "No FACULTY could be found for the given login ID$"
 
+// // GET FACULTY DETAILS
+// #define GET_FACULTY_ID "Enter the FACULTY ID of the student you're searching for"
+// #define FACULTY_ID_DOESNT_EXIT "No faculty could be found for the given ID"
+// #define FACULTY_LOGIN_ID_DOESNT_EXIT "No FACULTY could be found for the given login ID$"
+
 ///////////////
 
 // #define ACCOUNT_ID_DOESNT_EXIT "No account could be found for the given account number"
@@ -97,9 +102,9 @@
 #define ADMIN_UPDATE_STUDENT_NEW_AGE "What's the updated value for age?"
 #define ADMIN_UPDATE_STUDENT_NEW_DEPT "What's the updated value for Department?"
 #define ADMIN_ACTIVATE_STUDENT "Enter the ID of the student whom you want to activate : "
-#define ADMIN_DEACTIVATE_STUDENT "Enter the ID of the student whom you want to activate"
-#define ADMIN_DEACTIVATE_STUDENT_SUCCESS "The metioned student is deactivated successfully made!\nYou'll now be redirected to the main menu!^"
-#define ADMIN_ACTIVATE_STUDENT_SUCCESS "The metioned student is activated successfully made!\nYou'll now be redirected to the main menu!^"
+#define ADMIN_DEACTIVATE_STUDENT "Enter the ID of the student whom you want to deactivate"
+#define ADMIN_DEACTIVATE_STUDENT_SUCCESS "The metioned student is deactivated successfully !!\nYou'll now be redirected to the main menu!^"
+#define ADMIN_ACTIVATE_STUDENT_SUCCESS "The metioned student is activated successfully !!\nYou'll now be redirected to the main menu!^"
 
 #define ADMIN_UPDATE_STUDENT_SUCCESS "The required modification was successfully made!\nYou'll now be redirected to the main menu!^"
 
@@ -141,7 +146,7 @@
 #define FACULTY_LOGOUT "Logging you out now dear Faculty! Good bye!$"
 
 // FACULTY MENU
-#define FACULTY_MENU "1. Add new Course\n2. Remove offerd Course\n3. View Enrollment in Course\n4. Get your Account Details\n5. Change Password\nPress any other key to logout"
+#define FACULTY_MENU "1. Add new Course\n2. Remove offerd Course\n3. View Enrollment in Course\n4. View Your offered courses \n5. Get your Account Details\n6. Change Password\nPress any other key to logout"
 
 
 
@@ -166,10 +171,31 @@
 
 //
 #define SEG_FAULT_ID_DOESNT_EXIT "Login ID Doesn't Exist !!$"
+
+// ADD COURSE
+#define FACULTY_ADD_COURSE_NAME "Enter the Name of the Course\n"
+#define FACULTY_ADD_COURSE_SUCCESS "The course is added succesfully : "
+#define FACULTY_ADD_TOTAL_SEAT "Enter the total number of seats of the Course\n"
+#define FACULTY_DEACTIVATE_COURSE "Enter the ID of the course whom you want to remove"
+#define FACULTY_DEACTIVATE_COURSE_SUCCESS "The metioned course is removed successfully !!\nYou'll now be redirected to the main menu!^"
+
+#define COURSE_ID_DOESNT_EXIT "No course could be found for the given ID"
+#define NO_COURSE_OFFERED "No course is offered by the given Faculty^"
+
+#define MAX_COURSE_OFFERED 10
+#define MAX_COURSE_OFFERING_REACHED "Maximum number of Course Offering Reached by faculty\n^"
+
+
+#define RETURN_TO_MAIN_MENU "\nYou'll now be redirected to the main menu!^"
+// #define ADMIN_ADD_STUDENT_GENDER "Enter the Gender (M: Male, F: Female, O: Other)\n"
+// #define ADMIN_ADD_STUDENT_DEPT "Enter the Department of the Student( CSE or ECE )\n"
+// #define ADMIN_ADD_STUDENT_WRONG_GENDER "It seems you've enter a wrong gender choice!\nYou'll now be redirected to the main menu!^"
+
+// #define ADMIN_ADD_STUDENT_WRONG_DEPT "It seems you've enter a wrong Department choice!\nYou'll now be redirected to the main menu!^"
 // ====================================================
 
 
 #define FACULTY_FILE "./records/faculty.txt"
 #define STUDENT_FILE "./records/student.txt"
-
+#define COURSE_FILE "./records/course.txt"
 #endif

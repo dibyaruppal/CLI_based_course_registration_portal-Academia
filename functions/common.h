@@ -276,7 +276,7 @@ bool get_student_details(int connFD, int studentID)
     studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
     if (studentFileDescriptor == -1)
     {
-        // Customer File doesn't exist
+        // Student File doesn't exist
         bzero(writeBuffer, sizeof(writeBuffer));
         strcpy(writeBuffer, STUDENT_ID_DOESNT_EXIT);
         strcat(writeBuffer, "^");
@@ -292,7 +292,7 @@ bool get_student_details(int connFD, int studentID)
     int offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
     if (errno == EINVAL)
     {
-        // Customer record doesn't exist
+        // Student record doesn't exist
         bzero(writeBuffer, sizeof(writeBuffer));
         strcpy(writeBuffer, STUDENT_ID_DOESNT_EXIT);
         strcat(writeBuffer, "^");
@@ -329,6 +329,7 @@ bool get_student_details(int connFD, int studentID)
     lock.l_type = F_UNLCK;
     fcntl(studentFileDescriptor, F_SETLK, &lock);
 
+    close(studentFileDescriptor);
     bzero(writeBuffer, sizeof(writeBuffer));
     sprintf(writeBuffer, "Student Details - \n\tID : %d\n\tName : %s\n\tGender : %c\n\tAge: %d\n\tDepartment: %s\n\tLoginID : %s\n\tActive : %d", student.id, student.name, student.gender, student.age, student.dept, student.login, student.active);
 

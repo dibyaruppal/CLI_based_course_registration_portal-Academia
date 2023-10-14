@@ -104,7 +104,7 @@ bool add_student(int connFD)
     }
     else if (studentFileDescriptor == -1)
     {
-        perror("Error while opening account file");
+        perror("Error while opening student file");
         return false;
     }
     else
@@ -112,7 +112,7 @@ bool add_student(int connFD)
         int offset = lseek(studentFileDescriptor, -sizeof(struct Student), SEEK_END);
         if (offset == -1)
         {
-            perror("Error seeking to last Account record!");
+            perror("Error seeking to last student record!");
             return false;
         }
 
@@ -263,7 +263,7 @@ bool add_student(int connFD)
     writeBytes = write(studentFileDescriptor, &newStudent, sizeof(struct Student));
     if (writeBytes == -1)
     {
-        perror("Error while writing Account record to file!");
+        perror("Error while writing student record to file!");
         return false;
     }
 
@@ -372,15 +372,17 @@ bool add_faculty(int connFD)
         return false;
     }
 
-    //Setting login ID for student added by Admin
+    //Setting login ID for faculty added by Admin
     bzero(readBuffer, sizeof(readBuffer));
     strcpy(newFaculty.login, newFaculty.name);
     strcat(newFaculty.login, "-");
     sprintf(writeBuffer, "%d", newFaculty.id);
     strcat(newFaculty.login, writeBuffer);
 
-    //Setting Default Password for student added by Admin
+    //Setting Default Password for faculty added by Admin
     strcpy(newFaculty.password, newFaculty.name);
+
+    newFaculty.number_of_course = 0;
 
     facultyFileDescriptor = open(FACULTY_FILE, O_CREAT | O_APPEND | O_WRONLY, S_IRWXU);
     if (facultyFileDescriptor == -1)
