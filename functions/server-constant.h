@@ -2,7 +2,7 @@
 #define SERVER_CONSTANTS
 
 
-#define INITIAL_PROMPT "........................................Welcome to Academia :: Course Registration POrtal......................................\nWho are you?\n1. Admin\t2. Faculty\t3. Student \nPress any other number to exit\nEnter the number corresponding to the choice! : "
+#define INITIAL_PROMPT "........................................Welcome to Academia :: Course Registration Portal......................................\nWho are you?\n1. Admin\t2. Faculty\t3. Student \nPress any other number to exit\nEnter the number corresponding to the choice! : "
 
 // ========== COMMON TEXT =============================
 
@@ -25,7 +25,7 @@
 //#define CUSTOMER_LOGIN_ID_DOESNT_EXIT "No customer could be found for the given login ID$"
 
 #define STUDENT_ID_DOESNT_EXIT "No student could be found for the given ID"
-#define STUDENT_LOGIN_ID_DOESNT_EXIT "No student could be found for the given login ID$"
+#define STUDENT_LOGIN_ID_DOESNT_EXIT "No student could be found for the given login ID $"
 
 // #define ACCOUNT_ID_DOESNT_EXIT "No account could be found for the given account number"
 
@@ -34,7 +34,7 @@
 // GET STUDENT DETAILS
 #define GET_STUDENT_ID "Enter the STUDENT ID of the student you're searching for"
 #define STUDENT_ID_DOESNT_EXIT "No student could be found for the given ID"
-#define STUDENT_LOGIN_ID_DOESNT_EXIT "No student could be found for the given login ID$"
+#define STUDENT_LOGIN_ID_DOESNT_EXIT "No student could be found for the given login ID $"
 
 #define ERRON_INPUT_FOR_NUMBER "It seems you have passed a sequence of alphabets when a number was expected or you have entered an invalid number!\nYou'll now be redirected to the main menu!^"
 
@@ -118,6 +118,10 @@
 
 #define ADMIN_LOGOUT "Logging you out now superman! Good bye!$"
 
+// MODIFY COURSE SEAT INFO
+#define MODIFY_COURSE_SEAT_ID "Enter the ID of the course who's seat you want to edit"
+#define MODIFY_SEAT_NUMBER "Enter updated number of seats of the course"
+#define COURSE_SEAT_MODIFY_SUCCESS "The required modification was successfully made!\n"
 
 // ENROLL COURSE
 #define OPTION_MENU "Enter the ID of the course from above in which you want to enroll"
@@ -166,7 +170,7 @@
 #define FACULTY_LOGOUT "Logging you out now dear Faculty! Good bye!$"
 
 // FACULTY MENU
-#define FACULTY_MENU "1. Add new Course\n2. Remove offerd Course\n3. View Enrollment in Course\n4. View Your offered courses \n5. Get your Account Details\n6. Change Password\nPress any other key to logout"
+#define FACULTY_MENU "1. Add new Course\n2. Remove offerd Course\n3. View Enrollment in Course\n4. Modify course seat\n5. View Your offered courses \n6. Get your Account Details\n7. Change Password\nPress any other key to logout"
 
 
 
@@ -192,7 +196,7 @@
 //
 #define SEG_FAULT_ID_DOESNT_EXIT "Login ID Doesn't Exist !!$"
 
-// ADD COURSE
+// ADD COURSE 
 #define FACULTY_ADD_COURSE_NAME "Enter the Name of the Course\n"
 #define FACULTY_ADD_COURSE_SUCCESS "The course is added succesfully : "
 #define FACULTY_ADD_TOTAL_SEAT "Enter the total number of seats of the Course\n"
@@ -207,6 +211,7 @@
 #define COURSE_NOT_AVAILABLE "No Course is being offered at this moment"
 
 #define RETURN_TO_MAIN_MENU "\nYou'll now be redirected to the main menu!^"
+#define THIS_COURSE_NOT_OFFERED "This course is not offered by you !!"
 // #define ADMIN_ADD_STUDENT_GENDER "Enter the Gender (M: Male, F: Female, O: Other)\n"
 // #define ADMIN_ADD_STUDENT_DEPT "Enter the Department of the Student( CSE or ECE )\n"
 // #define ADMIN_ADD_STUDENT_WRONG_GENDER "It seems you've enter a wrong gender choice!\nYou'll now be redirected to the main menu!^"

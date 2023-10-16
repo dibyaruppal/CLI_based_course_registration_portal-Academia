@@ -272,7 +272,7 @@ bool enroll_courses(int connFD, int studentID)
     // Updated Alloted seat for that Course id
 
     int courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
-    if (studentFileDescriptor == -1)
+    if (courseFileDescriptor == -1)
     {
         perror("Error while opening course file");
         return false;
@@ -321,7 +321,7 @@ bool enroll_courses(int connFD, int studentID)
 
         close(courseFileDescriptor);
 
-        course.enrolled_students_id[course.alloted_seat] = ID;
+        course.enrolled_students_id[course.alloted_seat] = studentID;
         course.alloted_seat = course.alloted_seat + 1;
         
         courseFileDescriptor = open(COURSE_FILE, O_WRONLY, S_IRWXU);
@@ -364,7 +364,6 @@ bool enroll_courses(int connFD, int studentID)
     strcat(writeBuffer, "\nRedirecting you to the main menu ...^");
     writeBytes = write(connFD, writeBuffer, sizeof(writeBuffer));
     readBytes = read(connFD, readBuffer, sizeof(read)); // Dummy read
-    return true;
 
     return true;
 }
@@ -383,8 +382,11 @@ bool unenroll_courses(int connFD, int studentID)
     int lockingStatus;
     int courseID;
 
-    get_student_course_details(connFD, studentID);
-
+    bool enrollementStatus = get_student_course_details(connFD, studentID);
+    if(enrollementStatus == false)
+    {
+        return false;
+    }
     // Unenroll Course from the Course 
     writeBytes = write(connFD, STUDENT_UNENROLL_COURSE, strlen(STUDENT_UNENROLL_COURSE));
     if (writeBytes == -1)
@@ -402,28 +404,70 @@ bool unenroll_courses(int connFD, int studentID)
 
     courseID = atoi(readBuffer);
 
+    int studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
+    if (studentFileDescriptor == -1)
+    {
+        perror("Error while opening student file");
+        return false;
+    }
+    offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
+        
+    if (offset == -1)
+    {
+        perror("Error while seeking to required student record!");
+        return false;
+    }
+
+    struct flock lock_c = {F_RDLCK, SEEK_SET, offset, sizeof(struct Student), getpid()};
+    // Lock the record to be read
+    lockingStatus = fcntl(studentFileDescriptor, F_SETLKW, &lock_c);
+    if (lockingStatus == -1)
+    {
+        perror("Couldn't obtain lock on student record!");
+        return false;
+    }
+
+    readBytes = read(studentFileDescriptor, &student, sizeof(struct Student));
+    if (readBytes == -1)
+    {
+        perror("Error while reading student record from the file!");
+        return false;
+    }
+
+    // Unlock the record
+    lock_c.l_type = F_UNLCK;
+    fcntl(studentFileDescriptor, F_SETLK, &lock_c);
+
+    close(studentFileDescriptor);
+
     // Checking Course ID present or not
+    int course_exist = 0;
     for(int i=0;i<student.number_of_enrolled_course;i++)
     {
-        if(student.enrolled_course[i]==courseID)
+        if(student.enrolled_course[i] == courseID)
         {
-            // Course record doesn't exist
-            bzero(writeBuffer, sizeof(writeBuffer));
-            strcpy(writeBuffer, THIS_COURSE_NOT_ENROLLED);
-            strcat(writeBuffer, "^");
-            writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
-            if (writeBytes == -1)
-            {
-                perror("Error while writing THIS_COURSE_NOT_ENROLLED message to client!");
-                return false;
-            }
-            readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+            course_exist = 1;
+            break;
+        }
+    }
+    if(course_exist == 0)
+    {
+        // Course record doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, THIS_COURSE_NOT_ENROLLED);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing THIS_COURSE_NOT_ENROLLED message to client!");
             return false;
         }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
     }
 
     // Removing course ID from student structure
-    int studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
+    studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
     if (studentFileDescriptor == -1)
     {
         perror("Error while opening student file");
@@ -519,7 +563,7 @@ bool unenroll_courses(int connFD, int studentID)
     // Updated Alloted seat for that Course id
 
     int courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
-    if (studentFileDescriptor == -1)
+    if (courseFileDescriptor == -1)
     {
         perror("Error while opening course file");
         return false;

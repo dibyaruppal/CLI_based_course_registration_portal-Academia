@@ -6,6 +6,7 @@
 #include <sys/sem.h>
 
 #include "./common.h"
+#include "./student.h"
 
 struct Faculty loggedInFaculty;
 int semIdentifier;
@@ -15,9 +16,12 @@ int semIdentifier;
 bool faculty_operation_handler(int connFD);
 bool add_courses(int connFD, int facultyID);
 bool remove_offered_courses(int connFD, int facultyID);
+bool modify_course_details(int connFD, int facultyID);
 bool view_enrollments_in_course(int connFD, int facultyID);
+// bool view_enrolled_students(int connFD, int facultyID);
 bool view_offered_course(int connFD, int facultyID);
 bool change_password_faculty(int connFD);
+bool remove_student_from_courses( int connFD, int studentID, int courseID);
 
 // =====================================================
 
@@ -94,12 +98,15 @@ bool faculty_operation_handler(int connFD)
                 view_enrollments_in_course(connFD, loggedInFaculty.id);
                 break;
             case 4:
-                view_offered_course(connFD, loggedInFaculty.id);
+                modify_course_details(connFD, loggedInFaculty.id);
                 break;
             case 5:
-                get_faculty_details(connFD, loggedInFaculty.id);
+                view_offered_course(connFD, loggedInFaculty.id);
                 break;
             case 6:
+                get_faculty_details(connFD, loggedInFaculty.id);
+                break;
+            case 7:
                 change_password_faculty(connFD);
                 break;
             default:
@@ -357,13 +364,14 @@ bool remove_offered_courses(int connFD, int facultyID){
 
     struct Course course;
     struct Faculty faculty;
+    struct Student student;
 
     int courseID;
 
     off_t offset;
     int lockingStatus;
 
-    // Deactivating Course ID from the Course record
+    
     writeBytes = write(connFD, FACULTY_DEACTIVATE_COURSE, strlen(FACULTY_DEACTIVATE_COURSE));
     if (writeBytes == -1)
     {
@@ -379,6 +387,70 @@ bool remove_offered_courses(int connFD, int facultyID){
     }
 
     courseID = atoi(readBuffer);
+
+    // checking course id is present or not in offered course
+    int facultyFileDescriptor = open(FACULTY_FILE, O_RDONLY);
+    if (facultyFileDescriptor == -1)
+    {
+        perror("Error while opening course file");
+        return false;
+    }
+    offset = lseek(facultyFileDescriptor, facultyID * sizeof(struct Faculty), SEEK_SET);
+        
+    if (offset == -1)
+    {
+        perror("Error while seeking to required course record!");
+        return false;
+    }
+
+    struct flock lock_c = {F_RDLCK, SEEK_SET, offset, sizeof(struct Faculty), getpid()};
+    // Lock the record to be read
+    lockingStatus = fcntl(facultyFileDescriptor, F_SETLKW, &lock_c);
+    if (lockingStatus == -1)
+    {
+        perror("Couldn't obtain lock on course record!");
+        return false;
+    }
+
+    readBytes = read(facultyFileDescriptor, &faculty, sizeof(struct Faculty));
+    if (readBytes == -1)
+    {
+        perror("Error while reading course record from the file!");
+        return false;
+    }
+
+    // Unlock the record
+    lock_c.l_type = F_UNLCK;
+    fcntl(facultyFileDescriptor, F_SETLK, &lock_c);
+
+    close(facultyFileDescriptor);
+
+    // Checking Course ID present or not
+    int course_exist = 0;
+    for(int i=0;i<faculty.number_of_course;i++)
+    {
+        if(faculty.offer_course_id[i]==courseID)
+        {
+            course_exist = 1;
+        }
+    }
+    if(course_exist == 0)
+    {
+        // Course record doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, THIS_COURSE_NOT_OFFERED);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing THIS_COURSE_NOT_OFFERED message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+    
+    // Deactivating Course ID from the Course record
 
     int courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
     if (courseFileDescriptor == -1)
@@ -479,7 +551,7 @@ bool remove_offered_courses(int connFD, int facultyID){
 
 
     // Deleting Course id from faculty record
-    int facultyFileDescriptor = open(FACULTY_FILE, O_RDONLY);
+    facultyFileDescriptor = open(FACULTY_FILE, O_RDONLY);
     if (facultyFileDescriptor == -1)
     {
         perror("Error while opening faculty file");
@@ -585,7 +657,164 @@ bool remove_offered_courses(int connFD, int facultyID){
 
     close(facultyFileDescriptor);
 
+    // Removing course ID from each enrolled student structure
 
+    courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
+    if (courseFileDescriptor == -1)
+    {
+        // course File doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, COURSE_ID_DOESNT_EXIT);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing COURSE_ID_DOESNT_EXIT message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+
+    offset = lseek(courseFileDescriptor, courseID * sizeof(struct Course), SEEK_SET);
+    if (errno == EINVAL)
+    {
+        // Course record doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, COURSE_ID_DOESNT_EXIT);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing COURSE_ID_DOESNT_EXIT message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+    else if (offset == -1)
+    {
+        perror("Error while seeking to required course record!");
+        return false;
+    }
+
+    struct flock lock_course = {F_RDLCK, SEEK_SET, offset, sizeof(struct Course), getpid()};
+
+    // Lock the record to be read
+    lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock_course);
+    if (lockingStatus == -1)
+    {
+        perror("Couldn't obtain lock on course record!");
+        return false;
+    }
+
+    readBytes = read(courseFileDescriptor, &course, sizeof(struct Course));
+    if (readBytes == -1)
+    {
+        perror("Error while reading course record from the file!");
+        return false;
+    }
+
+    // Unlock the record
+    lock_course.l_type = F_UNLCK;
+    fcntl(courseFileDescriptor, F_SETLK, &lock_course);
+
+    int n_students = course.alloted_seat;
+    for(int i=0;i<n_students;i++)
+    {
+        int studentID = course.enrolled_students_id[i];
+
+        int studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
+        if (studentFileDescriptor == -1)
+        {
+            perror("Error while opening student file");
+            return false;
+        }
+        offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
+        
+        if (offset == -1)
+        {
+            perror("Error while seeking to required student record!");
+            return false;
+        }
+
+        struct flock lock = {F_RDLCK, SEEK_SET, offset, sizeof(struct Student), getpid()};
+        // Lock the record to be read
+        lockingStatus = fcntl(studentFileDescriptor, F_SETLKW, &lock);
+        if (lockingStatus == -1)
+        {
+            perror("Couldn't obtain lock on student record!");
+            return false;
+        }
+
+        readBytes = read(studentFileDescriptor, &student, sizeof(struct Student));
+        if (readBytes == -1)
+        {
+            perror("Error while reading student record from the file!");
+            return false;
+        }
+
+        // Unlock the record
+        lock.l_type = F_UNLCK;
+        fcntl(studentFileDescriptor, F_SETLK, &lock);
+
+        close(studentFileDescriptor);
+
+        // Search the Position of the Course ID
+        int pos=0;
+        int n_course = student.number_of_enrolled_course;
+        for(int j=0; j<n_course; j++)
+        {
+            if(student.enrolled_course[j] == courseID)
+            {
+                pos = j;
+                break;
+            }
+        }
+        /* Copy next element value to current element */
+        for(int i=pos; i<n_course; i++)
+        {
+            student.enrolled_course[i] = student.enrolled_course[i + 1];
+        }
+
+        /* Decrement number_of_enrolled_course by 1 */
+        student.number_of_enrolled_course = n_course -1;
+
+        studentFileDescriptor = open(STUDENT_FILE, O_WRONLY);
+        if (studentFileDescriptor == -1)
+        {
+            perror("Error while opening student file");
+            return false;
+        }
+        offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
+        if (offset == -1)
+        {
+            perror("Error while seeking to required student record!");
+            return false;
+        }
+
+        lock.l_type = F_WRLCK;
+        lock.l_start = offset;
+        lockingStatus = fcntl(studentFileDescriptor, F_SETLKW, &lock);
+        if (lockingStatus == -1)
+        {
+            perror("Error while obtaining write lock on student record!");
+            return false;
+        }
+
+        writeBytes = write(studentFileDescriptor, &student, sizeof(struct Student));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing update student info into file");
+        }
+
+        lock.l_type = F_UNLCK;
+        fcntl(studentFileDescriptor, F_SETLKW, &lock);
+
+        close(studentFileDescriptor);
+    }
+
+    close(courseFileDescriptor);
 
     writeBytes = write(connFD, FACULTY_DEACTIVATE_COURSE_SUCCESS, strlen(FACULTY_DEACTIVATE_COURSE_SUCCESS));
     if (writeBytes == -1)
@@ -598,6 +827,347 @@ bool remove_offered_courses(int connFD, int facultyID){
     return true;
 }
 
+//Modying course seat Details =====================================================================================================================
+bool modify_course_details(int connFD, int facultyID)
+{
+    ssize_t readBytes, writeBytes;             // Number of bytes read from / written to the socket
+    char readBuffer[1024], writeBuffer[1024]; // A buffer for reading from / writing to the socket
+    char tempBuffer[1024];
+
+    struct Course course;
+    struct Faculty faculty;
+
+    int courseID;
+
+    view_offered_course(connFD, facultyID);
+    // Get course ID to update
+    writeBytes = write(connFD, MODIFY_COURSE_SEAT_ID, strlen(MODIFY_COURSE_SEAT_ID));
+    if (writeBytes == -1)
+    {
+        perror("Error while writing MODIFY_COURSE_SEAT_ID message to client!");
+        return false;
+    }
+    bzero(readBuffer, sizeof(readBuffer));
+    readBytes = read(connFD, readBuffer, sizeof(readBuffer));
+    if (readBytes == -1)
+    {
+        perror("Error while reading student ID from client!");
+        return false;
+    }
+
+    courseID = atoi(readBuffer);
+
+    // checking course id is present or not in offered course
+    int facultyFileDescriptor = open(FACULTY_FILE, O_RDONLY);
+    if (facultyFileDescriptor == -1)
+    {
+        perror("Error while opening course file");
+        return false;
+    }
+    off_t offset = lseek(facultyFileDescriptor, facultyID * sizeof(struct Faculty), SEEK_SET);
+        
+    if (offset == -1)
+    {
+        perror("Error while seeking to required course record!");
+        return false;
+    }
+
+    struct flock lock_c = {F_RDLCK, SEEK_SET, offset, sizeof(struct Faculty), getpid()};
+    // Lock the record to be read
+    int lockingStatus = fcntl(facultyFileDescriptor, F_SETLKW, &lock_c);
+    if (lockingStatus == -1)
+    {
+        perror("Couldn't obtain lock on course record!");
+        return false;
+    }
+
+    readBytes = read(facultyFileDescriptor, &faculty, sizeof(struct Faculty));
+    if (readBytes == -1)
+    {
+        perror("Error while reading course record from the file!");
+        return false;
+    }
+
+    // Unlock the record
+    lock_c.l_type = F_UNLCK;
+    fcntl(facultyFileDescriptor, F_SETLK, &lock_c);
+
+    close(facultyFileDescriptor);
+
+    // Checking Course ID present or not
+    int course_exist = 0;
+    for(int i=0;i<faculty.number_of_course;i++)
+    {
+        if(faculty.offer_course_id[i]==courseID)
+        {
+            course_exist = 1;
+        }
+    }
+    if(course_exist == 0)
+    {
+        // Course record doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, THIS_COURSE_NOT_OFFERED);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing THIS_COURSE_NOT_OFFERED message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+
+    // Get number of seats to update
+    writeBytes = write(connFD, MODIFY_SEAT_NUMBER, strlen(MODIFY_SEAT_NUMBER));
+    if (writeBytes == -1)
+    {
+        perror("Error while writing MODIFY_SEAT_NUMBER message to client!");
+        return false;
+    }
+    bzero(readBuffer, sizeof(readBuffer));
+    readBytes = read(connFD, readBuffer, sizeof(readBuffer));
+    if (readBytes == -1)
+    {
+        perror("Error while reading seat number from client!");
+        return false;
+    }
+
+    int updated_seat = atoi(readBuffer);
+
+    struct flock lock = {F_RDLCK, SEEK_SET, offset, sizeof(struct Course), getpid()};
+
+    // Get previous seat details
+    int original_seat;
+
+    int courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
+    if (courseFileDescriptor == -1)
+    {
+        perror("Error while opening course file");
+        return false;
+    }
+    else
+    {
+        int offset = lseek(courseFileDescriptor, courseID * sizeof(struct Course), SEEK_SET);
+        if (errno == EINVAL)
+        {
+            // Course record doesn't exist
+            bzero(writeBuffer, sizeof(writeBuffer));
+            strcpy(writeBuffer, COURSE_ID_DOESNT_EXIT);
+            strcat(writeBuffer, "^");
+            writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+            if (writeBytes == -1)
+            {
+                perror("Error while writing COURSE_ID_DOESNT_EXIT message to client!");
+                return false;
+            }
+            readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+            return false;
+        }
+        else if (offset == -1)
+        {
+            perror("Error seeking to course record!");
+            return false;
+        }
+
+
+        int lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock);
+        if (lockingStatus == -1)
+        {
+            perror("Error obtaining read lock on course record!");
+            return false;
+        }
+
+        readBytes = read(courseFileDescriptor, &course, sizeof(struct Course));
+        if (readBytes == -1)
+        {
+            perror("Error while reading course record from file!");
+            return false;
+        }
+
+        lock.l_type = F_UNLCK;
+        fcntl(courseFileDescriptor, F_SETLK, &lock);
+
+        close(courseFileDescriptor);
+        
+        // Retrived original seats
+        original_seat = course.seat;
+    }
+
+    // CASE : if seats are increased
+    if(original_seat < updated_seat)
+    {
+        course.seat = updated_seat;
+        courseFileDescriptor = open(COURSE_FILE, O_WRONLY, S_IRWXU);
+        if (courseFileDescriptor == -1)
+        {
+            perror("Error while creating / opening course file!");
+            return false;
+        }
+        offset = lseek(courseFileDescriptor, courseID * sizeof(struct Course), SEEK_SET);
+        if (offset == -1)
+        {
+            perror("Error while seeking to required course record!");
+            return false;
+        }
+        lock.l_type = F_WRLCK;
+        lock.l_start = offset;
+        lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock);
+        if (lockingStatus == -1)
+        {
+            perror("Error while obtaining write lock on faculty record!");
+            return false;
+        }
+
+        writeBytes = write(courseFileDescriptor, &course, sizeof(struct Course));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing course record to file!");
+            return false;
+        }
+
+        // Unlock the record
+        lock.l_type = F_UNLCK;
+        fcntl(courseFileDescriptor, F_SETLK, &lock);
+
+        close(courseFileDescriptor);
+    }
+    else
+    {
+        // CASE : if seats are decreased
+        if(course.alloted_seat<updated_seat)
+        {
+            // CASE : if enrolled students are less the new updated seat
+            course.seat = updated_seat;
+            courseFileDescriptor = open(COURSE_FILE, O_WRONLY, S_IRWXU);
+            if (courseFileDescriptor == -1)
+            {
+                perror("Error while creating / opening course file!");
+                return false;
+            }
+            offset = lseek(courseFileDescriptor, courseID * sizeof(struct Course), SEEK_SET);
+            if (offset == -1)
+            {
+                perror("Error while seeking to required course record!");
+                return false;
+            }
+            lock.l_type = F_WRLCK;
+            lock.l_start = offset;
+            lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock);
+            if (lockingStatus == -1)
+            {
+                perror("Error while obtaining write lock on faculty record!");
+                return false;
+            }
+
+            writeBytes = write(courseFileDescriptor, &course, sizeof(struct Course));
+            if (writeBytes == -1)
+            {
+                perror("Error while writing course record to file!");
+                return false;
+            }
+
+            // Unlock the record
+            lock.l_type = F_UNLCK;
+            fcntl(courseFileDescriptor, F_SETLK, &lock);
+
+            close(courseFileDescriptor);
+        }
+        else
+        {
+            // CASE : Enrolled students are more than updated total seats
+            struct flock lock = {F_RDLCK, SEEK_SET, offset, sizeof(struct Course), getpid()};
+
+            int courseFileDescriptor = open(COURSE_FILE, O_RDONLY);
+            
+            int lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock);
+            if (lockingStatus == -1)
+            {
+                perror("Error obtaining read lock on course record!");
+                return false;
+            }
+
+            readBytes = read(courseFileDescriptor, &course, sizeof(struct Course));
+            if (readBytes == -1)
+            {
+                perror("Error while reading course record from file!");
+                return false;
+            }
+
+            lock.l_type = F_UNLCK;
+            fcntl(courseFileDescriptor, F_SETLK, &lock);
+
+            close(courseFileDescriptor);
+
+            // Removing all the enrolled students from the back 
+
+            int students_id_array[200];
+            int last=0;
+            for(int i=0;i<course.alloted_seat;i++)
+            {
+
+                students_id_array[i]=course.enrolled_students_id[i];
+                last=i;
+            }
+            int seatAlloted = course.alloted_seat;
+            int diff = seatAlloted - updated_seat;
+            while(diff--)
+            {
+                int studentID = students_id_array[last];
+                printf("studentID : %d\n-",studentID);
+                remove_student_from_courses( connFD, studentID, courseID);
+                last--;
+            }
+            course.alloted_seat = updated_seat;
+            course.seat = updated_seat;
+
+            //Writing the updated course structure into records
+            courseFileDescriptor = open(COURSE_FILE, O_WRONLY, S_IRWXU);
+            if (courseFileDescriptor == -1)
+            {
+                perror("Error while creating / opening course file!");
+                return false;
+            }
+            offset = lseek(courseFileDescriptor, courseID * sizeof(struct Course), SEEK_SET);
+            if (offset == -1)
+            {
+                perror("Error while seeking to required course record!");
+                return false;
+            }
+            lock.l_type = F_WRLCK;
+            lock.l_start = offset;
+            lockingStatus = fcntl(courseFileDescriptor, F_SETLKW, &lock);
+            if (lockingStatus == -1)
+            {
+                perror("Error while obtaining write lock on course record!");
+                return false;
+            }
+
+            writeBytes = write(courseFileDescriptor, &course, sizeof(struct Course));
+            if (writeBytes == -1)
+            {
+                perror("Error while writing course record to file!");
+                return false;
+            }
+
+            // Unlock the record
+            lock.l_type = F_UNLCK;
+            fcntl(courseFileDescriptor, F_SETLK, &lock);
+
+            close(courseFileDescriptor);
+        }
+    }
+
+
+    bzero(writeBuffer, sizeof(writeBuffer));
+    sprintf(writeBuffer, "%s", COURSE_SEAT_MODIFY_SUCCESS);
+    strcat(writeBuffer, "\nRedirecting you to the main menu ...^");
+    writeBytes = write(connFD, writeBuffer, sizeof(writeBuffer));
+    readBytes = read(connFD, readBuffer, sizeof(read)); // Dummy read
+
+    return true;
+}
 
 //Fetching student enrollment Details =====================================================================================================================
 bool view_enrollments_in_course(int connFD, int facultyID)
@@ -689,8 +1259,6 @@ bool view_enrollments_in_course(int connFD, int facultyID)
             return false;
         }
     }
-    
-    // readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
 
     //Looping throuhg each id and get details from Course record
     
@@ -883,8 +1451,6 @@ bool view_offered_course(int connFD, int facultyID)
             return false;
         }
     }
-    
-    // readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
 
     //Looping throuhg each id and get details from Course record
     
@@ -1129,6 +1695,178 @@ bool change_password_faculty(int connFD)
 
     return false;
 }
+
+
+bool remove_student_from_courses( int connFD, int studentID, int courseID)
+{
+    ssize_t readBytes, writeBytes;
+    char readBuffer[1024], writeBuffer[1024];
+
+    // struct Course course;
+    struct Student student;
+
+    off_t offset;
+    int lockingStatus;
+
+    int studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
+    if (studentFileDescriptor == -1)
+    {
+        perror("Error while opening student file");
+        return false;
+    }
+    offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
+        
+    if (offset == -1)
+    {
+        perror("Error while seeking to required student record!");
+        return false;
+    }
+
+    struct flock lock_c = {F_RDLCK, SEEK_SET, offset, sizeof(struct Student), getpid()};
+    // Lock the record to be read
+    lockingStatus = fcntl(studentFileDescriptor, F_SETLKW, &lock_c);
+    if (lockingStatus == -1)
+    {
+        perror("Couldn't obtain lock on student record!");
+        return false;
+    }
+
+    readBytes = read(studentFileDescriptor, &student, sizeof(struct Student));
+    if (readBytes == -1)
+    {
+        perror("Error while reading student record from the file!");
+        return false;
+    }
+
+    // Unlock the record
+    lock_c.l_type = F_UNLCK;
+    fcntl(studentFileDescriptor, F_SETLK, &lock_c);
+
+    close(studentFileDescriptor);
+
+    // Checking Course ID present or not
+    int course_exist = 0;
+    
+    for(int i=0;i<student.number_of_enrolled_course;i++)
+    {
+        if(student.enrolled_course[i]==courseID)
+        {
+            course_exist = 1;
+            break;
+        }
+    }
+    
+    if(course_exist == 0)
+    {
+        // Course record doesn't exist
+        bzero(writeBuffer, sizeof(writeBuffer));
+        strcpy(writeBuffer, THIS_COURSE_NOT_ENROLLED);
+        strcat(writeBuffer, "^");
+        writeBytes = write(connFD, writeBuffer, strlen(writeBuffer));
+        if (writeBytes == -1)
+        {
+            perror("Error while writing THIS_COURSE_NOT_ENROLLED message to client!");
+            return false;
+        }
+        readBytes = read(connFD, readBuffer, sizeof(readBuffer)); // Dummy read
+        return false;
+    }
+    printf("Yes");
+    // Removing course ID from student structure
+    studentFileDescriptor = open(STUDENT_FILE, O_RDONLY);
+    if (studentFileDescriptor == -1)
+    {
+        perror("Error while opening student file");
+        return false;
+    }
+
+    offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
+    
+    if (offset == -1)
+    {
+        perror("Error while seeking to required student record!");
+        return false;
+    }
+
+    struct flock lock = {F_RDLCK, SEEK_SET, offset, sizeof(struct Student), getpid()};
+
+
+    // Lock the record to be read
+    lockingStatus = fcntl(studentFileDescriptor, F_SETLKW, &lock);
+    if (lockingStatus == -1)
+    {
+        perror("Couldn't obtain lock on student record!");
+        return false;
+    }
+
+    readBytes = read(studentFileDescriptor, &student, sizeof(struct Student));
+    if (readBytes == -1)
+    {
+        perror("Error while reading student record from the file!");
+        return false;
+    }
+
+    // Unlock the record
+    lock.l_type = F_UNLCK;
+    fcntl(studentFileDescriptor, F_SETLK, &lock);
+
+    close(studentFileDescriptor);
+
+    // Search the Position of the Course ID
+    int pos=0;
+    int n_course = student.number_of_enrolled_course;
+    for(int j=0; j<n_course; j++)
+    {
+        if(student.enrolled_course[j] == courseID)
+        {
+            pos = j;
+            break;
+        }
+    }
+    /* Copy next element value to current element */
+    for(int i=pos; i<n_course; i++)
+    {
+        student.enrolled_course[i] = student.enrolled_course[i + 1];
+    }
+
+    /* Decrement number_of_enrolled_course by 1 */
+    student.number_of_enrolled_course = n_course - 1;
+
+    studentFileDescriptor = open(STUDENT_FILE, O_WRONLY);
+    if (studentFileDescriptor == -1)
+    {
+        perror("Error while opening student file");
+        return false;
+    }
+    offset = lseek(studentFileDescriptor, studentID * sizeof(struct Student), SEEK_SET);
+    if (offset == -1)
+    {
+        perror("Error while seeking to required student record!");
+        return false;
+    }
+
+    lock.l_type = F_WRLCK;
+    lock.l_start = offset;
+    lockingStatus = fcntl(studentFileDescriptor, F_SETLKW, &lock);
+    if (lockingStatus == -1)
+    {
+        perror("Error while obtaining write lock on student record!");
+        return false;
+    }
+
+    writeBytes = write(studentFileDescriptor, &student, sizeof(struct Student));
+    if (writeBytes == -1)
+    {
+        perror("Error while writing update student info into file");
+    }
+
+    lock.l_type = F_UNLCK;
+    fcntl(studentFileDescriptor, F_SETLKW, &lock);
+
+    close(studentFileDescriptor);
+    return true;
+}
+
 
 // =====================================================
 

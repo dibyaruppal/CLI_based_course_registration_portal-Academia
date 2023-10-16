@@ -81,6 +81,13 @@ bool login_handler(bool isAdmin, bool isFaculty, int connFD, struct Student *ptr
     }
     else if (isFaculty)
     {
+        char *result = strchr(readBuffer, '-');
+        if (result == NULL || strlen(readBuffer) == result-readBuffer+1) 
+        {
+            writeBytes = write(connFD, FACULTY_LOGIN_ID_DOESNT_EXIT, strlen(FACULTY_LOGIN_ID_DOESNT_EXIT));
+            bzero(readBuffer, sizeof(readBuffer));
+            return false;
+        }
         bzero(tempBuffer, sizeof(tempBuffer));
         strcpy(tempBuffer, readBuffer);
         strtok(tempBuffer, "-");
@@ -127,6 +134,13 @@ bool login_handler(bool isAdmin, bool isFaculty, int connFD, struct Student *ptr
     }
     else
     {
+        char *result = strchr(readBuffer, '-');
+        if ( result == NULL || strlen(readBuffer) == result-readBuffer+1 ) 
+        {
+            writeBytes = write(connFD, STUDENT_LOGIN_ID_DOESNT_EXIT, strlen(STUDENT_LOGIN_ID_DOESNT_EXIT));
+            bzero(readBuffer, sizeof(readBuffer));
+            return false;
+        }
         bzero(tempBuffer, sizeof(tempBuffer));
         strcpy(tempBuffer, readBuffer);
         strtok(tempBuffer, "-");
