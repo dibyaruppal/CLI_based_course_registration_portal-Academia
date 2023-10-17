@@ -52,24 +52,18 @@ View All Offering Courses
 ## Setup and Execution
 First clone the repository 
 ```
-
     git clone https://github.com/rahulbollisetty/SS-Miniproject.git
-
 ```
 > The client-server socket uses 9020 port number
 > Make sure that no other processs is using that number
 
 Run the server by running the following on your command line:
 ```
-
     ./server
-
 ```
 Run the client by running the following on your command line:
 ```
-
     ./client
-
 ```
 > The server can handle multiple clients, so you can execute client code simultaneously on different terminals
 
